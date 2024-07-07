@@ -2,45 +2,140 @@ import os
 import time
 import requests
 from dotenv import load_dotenv
+from bs4 import BeautifulSoup
+from datetime import date, datetime
+from numbers_pixels import draw_number
 
 from pixoo import Pixoo
 
 # Load .env variables
 load_dotenv()
 
+color_gray = (36, 39, 43)
+color_red = (188, 84, 75)
+color_lightgray = (211, 211, 211)
 
-def defined_value(value, default):
-    return default if value is None else value
+color_calendar_date = color_red
+color_day_of_week = color_red
+color_spacer = color_lightgray
+
+day_of_week = [
+    "SEG",
+    "TER",
+    "QUA",
+    "QUI",
+    "SEX",
+    "SAB",
+    "DOM"
+]
+
+cow_images = [
+    "frame_1.png",
+    "frame_2.png",
+    "frame_3.png",
+    "frame_4.png",
+    "frame_5.png",
+    "frame_6.png",
+    "frame_7.png",
+    "frame_8.png",
+    "frame_9.png",
+    "frame_10.png"
+]
 
 
-def ping():
-    response = requests.get('https://api.coingecko.com/api/v3/ping')
-    return 'gecko_says' in response.json()
+def get_boi_gordo_price():
+    url = "https://www.cepea.esalq.usp.br/br/indicador/boi-gordo.aspx"
+
+    response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
+    response.raise_for_status()  # Verifica se a solicitação foi bem-sucedida
+
+    soup = BeautifulSoup(response.content, 'html.parser')
+
+    table = soup.find('table', {'id': 'imagenet-indicador1'})
+
+    cotacao_ultimo_dia = "0"
+    variacao = "0"
+
+    if table:
+        for row in table.find('tbody').find_all('tr'):
+            cells = row.find_all('td')
+            cotacao_ultimo_dia = cells[1]
+            variacao = cells[2]
+            break
+    else:
+        print("Tabela não encontrada.")
+
+    return float(cotacao_ultimo_dia.text.replace(',', '.')), float(variacao.text.replace('%', '').replace(',', '.'))
 
 
-def retrieve_fah_score(user_id):
-    response = requests.get(f'https://api2.foldingathome.org/uid/{user_id}')
-    return response.json()['score']
+def set_day_of_week(pixoo):
+    actual_date = date.today()
+    day_of_week_index = actual_date.weekday()
+    pixoo.draw_text(day_of_week[day_of_week_index], (3, 2), color_day_of_week)
 
 
-def retrieve_current_price():
-    response = requests.get('https://api.coingecko.com/api/v3/coins/banano')
-    data = response.json()
+def set_hour_and_minutes(pixoo):
+    hour = datetime.now().hour
+    minute = datetime.now().minute
 
-    currency = 'usd'
-    market_data = data['market_data']
+    if hour < 9:
+        hour = "0" + str(hour)
 
-    return market_data['current_price'][currency], market_data['price_change_percentage_24h_in_currency'][currency]
+    if minute < 9:
+        minute = "0" + str(minute)
+
+    split_hour = list(str(hour))
+    split_minute = list(str(minute))
+
+    draw_number(pixoo, int(split_hour[0]), 29, 2)
+    draw_number(pixoo, int(split_hour[1]), 37, 2)
+
+    pixoo.draw_pixel((45, 4), color_red)
+    pixoo.draw_pixel((45, 5), color_red)
+    pixoo.draw_pixel((45, 10), color_red)
+    pixoo.draw_pixel((45, 11), color_red)
+    pixoo.draw_pixel((46, 4), color_red)
+    pixoo.draw_pixel((46, 5), color_red)
+    pixoo.draw_pixel((46, 10), color_red)
+    pixoo.draw_pixel((46, 11), color_red)
+
+    draw_number(pixoo, int(split_minute[0]), 48, 2)
+    draw_number(pixoo, int(split_minute[1]), 56, 2)
+
+
+def set_spacer(pixoo):
+    for y in range(2, 14):
+        pixoo.draw_pixel((27, y), color_spacer)
+
+
+def set_calendar_date(pixoo):
+    actual_date = date.today()
+
+    day = actual_date.day
+    month = actual_date.month
+
+    if day < 9:
+        day = "0" + str(day)
+
+    if month < 9:
+        month = "0" + str(month)
+
+    pixoo.draw_text('{}'.format(day), (17, 2), color_calendar_date)
+    pixoo.draw_text('{}'.format(month), (1, 9), color_calendar_date)
+    pixoo.draw_pixel((9, 11), color_calendar_date)
+    pixoo.draw_text('{}'.format(actual_date.year), (11, 9), color_calendar_date)
+
+
+def set_background_gray(pixoo):
+    for x in range(0, 64):
+        for y in range(0, 64):
+            pixoo.draw_pixel((x, y), color_gray)
 
 
 def main():
     print('[.] Booting..')
 
-    if ping():
-        print('[.] CoingGecko API reachable')
-    else:
-        print('[x] CoinGecko API is not reachable. Perhaps check your internet settings')
-        return
+    price, variation = get_boi_gordo_price()
 
     # Verify if the ip address is set, can't default this one
     ip_address = os.environ.get('PIXOO_IP_ADDRESS')
@@ -51,56 +146,47 @@ def main():
     # A pleasant green color. Like a yet-to-be-ripe banano
     green = (99, 199, 77)
     red = (255, 0, 68)
-    white = (255, 255, 255)
 
     # Retrieve some config
-    timeout = int(defined_value(os.environ.get('TIMEOUT'), 3600))
-    user_id = defined_value(os.environ.get('FAH_USER_ID'), '501878621')
+    timeout = 3600
 
     # Set up a connection and show the background
     pixoo = Pixoo(ip_address)
-    pixoo.draw_image('background.png')
-    # pixoo.set_brightness(100) # Only used sometimes if the screen isn't bright enough
-    pixoo.draw_text('-----', (20, 49), green)
-    pixoo.draw_text('------', (20, 43), green)
-    pixoo.draw_text('-------------', (7, 57), green)
-    pixoo.push()
-
-    time.sleep(2)
 
     print('[.] Starting update loop')
     while True:
         # Retrieve the current price and change percentage from the coingecko API
-        current_price, change_percentage = retrieve_current_price()
-
-        # Retrieve the current F@H score from their sort-of API
-        score = retrieve_fah_score(user_id)
 
         # Determine the color and symbol
-        if change_percentage >= 0:
+        if variation >= 0:
             color = green
             symbol = '+'
         else:
             color = red
-            symbol = ''
-
-        # Place the background again first, no need to clear since it's screen sized
-        pixoo.draw_image('background.png')
+            symbol = '-'
 
         # Draw the change percentage
-        pixoo.draw_text(f'{symbol}{change_percentage:.1f}%', (20, 49), color)
 
-        # Draw current price
-        pixoo.draw_text(f'${current_price:.3f}', (20, 43), color)
+        for i in cow_images:
+            set_background_gray(pixoo)
+            # Place the background again first, no need to clear since it's screen sized
+            pixoo.draw_image(f"cow-images/{i}", (0, -4))
 
-        # Draw current F@H stats
-        pixoo.draw_text(f'F@H {score}', (7, 57), green)
+            set_day_of_week(pixoo)
+            set_calendar_date(pixoo)
+            set_spacer(pixoo)
+            set_hour_and_minutes(pixoo)
 
-        # Push to the display
-        pixoo.push()
+            pixoo.draw_text('Boi', (5, 50), (255, 255, 255))
+            pixoo.draw_text('Gordo', (5, 57), (255, 255, 255))
 
-        # Wait a bit before updating everything
-        time.sleep(timeout)
+            # Draw current price
+            pixoo.draw_text(f'R${price:.2f}', (29, 50), color)
+            pixoo.draw_text(f'{symbol}{variation:.1f}%', (35, 57), color)
+
+            # Push to the display
+            time.sleep(0.2)
+            pixoo.push()
 
 
 if __name__ == '__main__':
