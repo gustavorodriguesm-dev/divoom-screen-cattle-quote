@@ -255,3 +255,13 @@ def draw_number_1(pixoo, start_x, start_y):
         pixoo.draw_pixel((start_x + 2, start_y + y), color)
         pixoo.draw_pixel((start_x + 3, start_y + y), color)
         pixoo.draw_pixel((start_x + 4, start_y + y), color)
+
+    # Desenha a linha vertical esquerda inferior de 8 pixels
+    for y in range(1, 3):
+        pixoo.draw_pixel((start_x, start_y + y), color)
+        pixoo.draw_pixel((start_x + 1, start_y + y), color)
+
+    # Desenha a linha vertical esquerda inferior de 8 pixels
+    for x in range(0, 7):
+        pixoo.draw_pixel((start_x + x, start_y + 10 ), color)
+        pixoo.draw_pixel((start_x + x, start_y + 11 ), color)
